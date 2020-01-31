@@ -1,64 +1,47 @@
-module Autom exposing (..)
+module Autom exposing (DFA, isValid, simpleDFA)
 
 import Dict exposing (Dict)
-
-
-type alias Node =
-    { name : String
-    , edges : Dict String String
-    , final : Bool
-    }
+import Set exposing (Set)
 
 
 type alias DFA =
-    { start : String
-    , nodes : Dict String Node
+    { states : Set String
+    , alpha : Set String
+    , trans : Dict ( String, String ) String
+    , start : String
+    , final : Set String
     }
 
 
 simpleDFA : DFA
 simpleDFA =
-    let
-        q0 =
-            { name = "q0"
-            , edges = Dict.fromList [ ( "0", "q0" ), ( "1", "q1" ) ]
-            , final = True
-            }
-
-        q1 =
-            { name = "q1"
-            , edges = Dict.fromList [ ( "0", "q2" ), ( "1", "q0" ) ]
-            , final = False
-            }
-
-        q2 =
-            { name = "q2"
-            , edges = Dict.fromList [ ( "0", "q1" ), ( "1", "q2" ) ]
-            , final = False
-            }
-    in
-    { start = "q0", nodes = Dict.fromList [ ( "q0", q0 ), ( "q1", q1 ), ( "q2", q2 ) ] }
+    { states = Set.fromList [ "q0", "q1", "q2" ]
+    , alpha = Set.fromList [ "0", "1" ]
+    , trans =
+        Dict.fromList
+            [ ( ( "q0", "0" ), "q0" )
+            , ( ( "q0", "1" ), "q1" )
+            , ( ( "q1", "0" ), "q2" )
+            , ( ( "q1", "1" ), "q0" )
+            , ( ( "q2", "0" ), "q1" )
+            , ( ( "q2", "1" ), "q2" )
+            ]
+    , start = "q0"
+    , final = Set.fromList [ "q0" ]
+    }
 
 
 isValid : DFA -> String -> String -> Bool
-isValid d name t =
-    case Dict.get name d.nodes of
-        Nothing ->
-            False
+isValid d state str =
+    if String.isEmpty str then
+        Set.member state d.final
 
-        Just node ->
-            if String.isEmpty t then
-                node.final
+    else
+        case String.uncons str of
+            Nothing ->
+                False
 
-            else
-                case String.uncons t of
-                    Nothing ->
-                        False
-
-                    Just ( c, tail ) ->
-                        case Dict.get (String.fromChar c) node.edges of
-                            Nothing ->
-                                False
-
-                            Just name1 ->
-                                isValid d name1 tail
+            Just ( c, tail ) ->
+                Dict.get ( state, String.fromChar c ) d.trans
+                    |> Maybe.map (\name -> isValid d name tail)
+                    |> Maybe.withDefault False
